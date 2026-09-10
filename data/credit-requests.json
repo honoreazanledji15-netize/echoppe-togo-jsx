@@ -1,0 +1,60 @@
+[
+  {
+    "id": "14d56acd-96d3-42f8-9434-11aad989b336",
+    "fullName": "Antoine AZANLEDJI",
+    "phone": "98066632",
+    "email": "antoineazanledji15@gmail.com",
+    "city": "LOmé",
+    "creditType": "microcredit",
+    "amount": 58000,
+    "purpose": "Commerce",
+    "message": ":mlfdswxchjklmù$ôiuytrs",
+    "identityFile": {
+      "name": "01f60d_V6Jq.png",
+      "storedName": "1788970177260-01f60d_V6Jq.png",
+      "storage": "local",
+      "mimeType": "image/png",
+      "size": 6219
+    },
+    "documents": [
+      {
+        "name": "file_003_V6Jq.jpg",
+        "storedName": "1788970177263-file_003_V6Jq.jpg",
+        "storage": "local",
+        "mimeType": "image/jpeg",
+        "size": 1355
+      }
+    ],
+    "status": "received",
+    "createdAt": "2026-09-09T16:09:37.264Z"
+  },
+  {
+    "id": "5ce94fda-15c4-4359-9e2d-bf83c6a5bb3b",
+    "fullName": "jacques AZERTY",
+    "phone": "70348358",
+    "email": "jacques14@gmail",
+    "city": "Kara",
+    "creditType": "activity",
+    "amount": 12000000,
+    "purpose": "matériel",
+    "message": "sdfgyuiopmlkjb",
+    "identityFile": {
+      "name": "file_016_V6Jq.jpg",
+      "storedName": "1788973468733-file_016_V6Jq.jpg",
+      "storage": "local",
+      "mimeType": "image/jpeg",
+      "size": 2115
+    },
+    "documents": [
+      {
+        "name": "file_022_V6Jq.jpg",
+        "storedName": "1788973468734-file_022_V6Jq.jpg",
+        "storage": "local",
+        "mimeType": "image/jpeg",
+        "size": 5112
+      }
+    ],
+    "status": "received",
+    "createdAt": "2026-09-09T17:04:28.735Z"
+  }
+]
