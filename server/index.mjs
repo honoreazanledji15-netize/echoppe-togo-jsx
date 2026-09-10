@@ -3,8 +3,10 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import multer from "multer";
 import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { databaseEnabled, initializeDatabase, listCreditRequests, pool, saveAccountRequest, saveCreditRequest } from "./database.mjs";
-import { s3Enabled, storeUpload } from "./storage.mjs";
+import { databaseEnabled, initializeDatabase, listAccountRequests, listCreditRequests, listNewsletterSubscribers, pool, saveAccountRequest, saveCreditRequest, saveNewsletterSubscriber, updateCreditRequestStatus } from "./database.mjs";
+import { getLocalUploadPath, getUploadAccessUrl, s3Enabled, storeUpload } from "./storage.mjs";
+import fs from "node:fs";
+import path from "node:path";
 
 const app = express();
 const port = Number(process.env.API_PORT || 3001);
@@ -28,7 +30,7 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
   res.setHeader("Vary", "Origin");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -64,6 +66,11 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 const attemptMap = new Map();
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const normalizePhone = (value) => String(value || "").replace(/[\s.-]/g, "");
+const validPhone = (value) => /^\d{8}$/.test(normalizePhone(value));
+const validEmail = (value) => emailPattern.test(String(value || "").trim());
+const allowedStatuses = new Set(["received", "under_review", "approved", "rejected", "closed"]);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, service: "echoppe-togo-credit-api", database: databaseEnabled, objectStorage: s3Enabled, sharedSessions: databaseEnabled }));
 app.post("/api/credit-requests", upload.fields([{ name: "identity", maxCount: 1 }, { name: "documents", maxCount: 5 }]), async (req, res, next) => {
@@ -71,10 +78,10 @@ app.post("/api/credit-requests", upload.fields([{ name: "identity", maxCount: 1 
     const b = req.body || {};
     const identity = req.files?.identity?.[0];
     const amount = Number(b.amount);
-    if (!identity || !b.fullName || !b.phone || !b.email || !b.city || !b.creditType || !Number.isFinite(amount) || amount <= 0 || !b.purpose || !b.consent) return res.status(400).json({ error: "Informations ou document obligatoire manquant." });
+    if (!identity || !b.fullName || !validPhone(b.phone) || !validEmail(b.email) || !b.city || !b.creditType || !Number.isFinite(amount) || amount <= 0 || !b.purpose || !b.consent) return res.status(400).json({ error: "Informations ou document obligatoire manquant." });
     const identityFile = await storeUpload(identity);
     const documents = await Promise.all((req.files?.documents || []).map((file) => storeUpload(file)));
-    const request = { id: randomUUID(), fullName: String(b.fullName).trim(), phone: String(b.phone).trim(), email: String(b.email).trim().toLowerCase(), city: String(b.city).trim(), creditType: String(b.creditType), amount, purpose: String(b.purpose).trim(), message: String(b.message || "").trim(), identityFile, documents, status: "received", createdAt: new Date().toISOString() };
+    const request = { id: randomUUID(), fullName: String(b.fullName).trim(), phone: normalizePhone(b.phone), email: String(b.email).trim().toLowerCase(), city: String(b.city).trim(), creditType: String(b.creditType), amount, purpose: String(b.purpose).trim(), message: String(b.message || "").trim(), identityFile, documents, status: "received", createdAt: new Date().toISOString() };
     await saveCreditRequest(request);
     res.status(201).json({ ok: true, id: request.id, message: "Demande reçue avec succès." });
   } catch (error) { next(error); }
@@ -82,10 +89,19 @@ app.post("/api/credit-requests", upload.fields([{ name: "identity", maxCount: 1 
 app.post("/api/account-requests", async (req, res, next) => {
   try {
     const b = req.body || {};
-    if (!b.fullName || !b.phone || !b.email || !b.city || !b.accountType || !b.consent) return res.status(400).json({ error: "Information obligatoire manquante." });
-    const request = { id: randomUUID(), fullName: String(b.fullName).trim(), phone: String(b.phone).trim(), email: String(b.email).trim().toLowerCase(), city: String(b.city).trim(), accountType: String(b.accountType), message: String(b.message || "").trim(), status: "received", createdAt: new Date().toISOString() };
+    if (!b.fullName || !validPhone(b.phone) || !validEmail(b.email) || !b.city || !b.accountType || !b.consent) return res.status(400).json({ error: "Information obligatoire manquante." });
+    const request = { id: randomUUID(), fullName: String(b.fullName).trim(), phone: normalizePhone(b.phone), email: String(b.email).trim().toLowerCase(), city: String(b.city).trim(), accountType: String(b.accountType), message: String(b.message || "").trim(), status: "received", createdAt: new Date().toISOString() };
     await saveAccountRequest(request);
     res.status(201).json({ ok: true, id: request.id, message: "Demande de création de compte reçue." });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/newsletter-subscribers", async (req, res, next) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!validEmail(email)) return res.status(400).json({ error: "Veuillez saisir une adresse email valide." });
+    const result = await saveNewsletterSubscriber({ id: randomUUID(), email, createdAt: new Date().toISOString() });
+    res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, message: result.duplicate ? "Cette adresse est déjà inscrite." : "Inscription enregistrée avec succès." });
   } catch (error) { next(error); }
 });
 
@@ -101,7 +117,21 @@ app.post("/api/admin/login", (req, res) => {
 });
 app.post("/api/admin/logout", (req, res) => req.session.destroy(() => res.json({ ok: true })));
 app.get("/api/admin/me", requireAdmin, (req, res) => res.json({ ok: true, username: req.session.admin.username }));
-app.get("/api/admin/credit-requests", requireAdmin, async (_req, res, next) => { try { res.json(await listCreditRequests()); } catch (error) { next(error); } });
+app.get("/api/admin/credit-requests", requireAdmin, async (_req, res, next) => {
+  try {
+    const rows = await listCreditRequests();
+    const enriched = await Promise.all(rows.map(async (row) => ({
+      ...row,
+      identityFile: row.identityFile ? { ...row.identityFile, accessUrl: await getUploadAccessUrl(row.identityFile) } : null,
+      documents: await Promise.all((row.documents || []).map(async (file) => ({ ...file, accessUrl: await getUploadAccessUrl(file) }))),
+    })));
+    res.json(enriched);
+  } catch (error) { next(error); }
+});
+app.get("/api/admin/account-requests", requireAdmin, async (_req, res, next) => { try { res.json(await listAccountRequests()); } catch (error) { next(error); } });
+app.get("/api/admin/newsletter-subscribers", requireAdmin, async (_req, res, next) => { try { res.json(await listNewsletterSubscribers()); } catch (error) { next(error); } });
+app.patch("/api/admin/credit-requests/:id/status", requireAdmin, async (req, res, next) => { try { const status = String(req.body?.status || ""); if (!allowedStatuses.has(status)) return res.status(400).json({ error: "Statut invalide." }); const row = await updateCreditRequestStatus(req.params.id, status); if (!row) return res.status(404).json({ error: "Demande introuvable." }); res.json({ ok: true, request: row }); } catch (error) { next(error); } });
+app.get("/api/admin/files/local/:storedName", requireAdmin, (req, res) => { const storedName = path.basename(req.params.storedName); const filePath = getLocalUploadPath(storedName); if (!fs.existsSync(filePath)) return res.sendStatus(404); return res.download(filePath, storedName); });
 
 app.use((error, _req, res, _next) => {
   if (error instanceof multer.MulterError || error?.code === "LIMIT_FILE_SIZE") return res.status(400).json({ error: "Fichier invalide ou trop volumineux. Formats acceptés : PDF, JPG, PNG, 10 Mo maximum par fichier." });

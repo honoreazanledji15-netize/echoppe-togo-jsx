@@ -33,4 +33,11 @@ CREATE TABLE IF NOT EXISTS account_requests (
 
 CREATE INDEX IF NOT EXISTS account_requests_created_at_idx ON account_requests (created_at DESC);
 
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id UUID PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS newsletter_subscribers_created_at_idx ON newsletter_subscribers (created_at DESC);
+
 -- connect-pg-simple crée automatiquement la table user_sessions lorsqu’il est configuré avec createTableIfMissing=true.

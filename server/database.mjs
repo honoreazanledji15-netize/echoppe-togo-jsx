@@ -8,9 +8,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = path.join(root, "data");
 const requestsFile = path.join(dataDir, "credit-requests.json");
 const accountsFile = path.join(dataDir, "account-requests.json");
+const subscribersFile = path.join(dataDir, "newsletter-subscribers.json");
 fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(requestsFile)) fs.writeFileSync(requestsFile, "[]\n");
 if (!fs.existsSync(accountsFile)) fs.writeFileSync(accountsFile, "[]\n");
+if (!fs.existsSync(subscribersFile)) fs.writeFileSync(subscribersFile, "[]\n");
 
 export const databaseEnabled = Boolean(process.env.DATABASE_URL);
 export const pool = databaseEnabled ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }, max: Number(process.env.DATABASE_POOL_MAX || 10) }) : null;
@@ -43,6 +45,9 @@ export async function initializeDatabase() {
     status TEXT NOT NULL DEFAULT 'received',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id UUID PRIMARY KEY, email TEXT NOT NULL UNIQUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`);
 }
 
 const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
@@ -56,6 +61,35 @@ export async function saveCreditRequest(request) {
 export async function saveAccountRequest(request) {
   if (!pool) { const rows = read(accountsFile); rows.push(request); write(accountsFile, rows); return; }
   await pool.query(`INSERT INTO account_requests (id, full_name, phone, email, city, account_type, message, status, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [request.id, request.fullName, request.phone, request.email, request.city, request.accountType, request.message, request.status, request.createdAt]);
+}
+
+export async function listAccountRequests() {
+  if (!pool) return read(accountsFile).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const { rows } = await pool.query(`SELECT id, full_name AS "fullName", phone, email, city, account_type AS "accountType", message, status, created_at AS "createdAt" FROM account_requests ORDER BY created_at DESC`);
+  return rows;
+}
+
+export async function saveNewsletterSubscriber(subscriber) {
+  if (!pool) {
+    const rows = read(subscribersFile);
+    const existing = rows.find((row) => row.email === subscriber.email);
+    if (existing) return { duplicate: true, subscriber: existing };
+    rows.push(subscriber); write(subscribersFile, rows); return { duplicate: false, subscriber };
+  }
+  const result = await pool.query(`INSERT INTO newsletter_subscribers (id, email, created_at) VALUES ($1,$2,$3) ON CONFLICT (email) DO NOTHING RETURNING id, email, created_at AS "createdAt"`, [subscriber.id, subscriber.email, subscriber.createdAt]);
+  return { duplicate: result.rowCount === 0, subscriber: result.rows[0] || subscriber };
+}
+
+export async function listNewsletterSubscribers() {
+  if (!pool) return read(subscribersFile).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const { rows } = await pool.query(`SELECT id, email, created_at AS "createdAt" FROM newsletter_subscribers ORDER BY created_at DESC`);
+  return rows;
+}
+
+export async function updateCreditRequestStatus(id, status) {
+  if (!pool) { const rows = read(requestsFile); const row = rows.find((item) => item.id === id); if (!row) return null; row.status = status; write(requestsFile, rows); return row; }
+  const { rows } = await pool.query(`UPDATE credit_requests SET status = $2 WHERE id = $1 RETURNING id, status`, [id, status]);
+  return rows[0] || null;
 }
 
 export async function listCreditRequests() {

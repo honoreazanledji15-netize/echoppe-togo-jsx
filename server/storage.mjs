@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const localUploadDir = path.join(root, "data", "uploads");
@@ -18,6 +19,17 @@ export async function storeUpload(file, prefix = "credit-documents") {
   const localName = file.filename || `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   await fs.writeFile(path.join(localUploadDir, localName), file.buffer);
   return { name: file.originalname, storedName: localName, storage: "local", mimeType: file.mimetype, size: file.size };
+}
+
+export async function getUploadAccessUrl(file) {
+  if (!file) return null;
+  if (file.storage === "s3") return getSignedUrl(s3, new GetObjectCommand({ Bucket: file.bucket || process.env.S3_BUCKET, Key: file.key }), { expiresIn: 900 });
+  if (file.storage === "local" && file.storedName) return "/api/admin/files/local/" + encodeURIComponent(file.storedName);
+  return null;
+}
+
+export function getLocalUploadPath(storedName) {
+  return path.join(localUploadDir, path.basename(storedName));
 }
 
 export { s3Enabled };
