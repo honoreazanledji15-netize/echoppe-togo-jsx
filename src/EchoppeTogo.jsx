@@ -110,10 +110,6 @@ const partenaires = [
   { name: "Banque Africaine de Développement", description: "Un réseau d'appui institutionnel orienté vers l'impact social et économique." },
   { name: "Aube nouvelle", description: "A completer avec les informations." },
 ];
-// const temoignages = [
-  { quote: "Grâce à l'accompagnement d'Échoppe, mon activité a pu se stabiliser et grandir.", author: "Awa, entrepreneure" },
-  { quote: "Le service est humain, rapide et vraiment orienté vers les besoins réels.", author: "Kossi, bénéficiaire" },
-]; //
 const actualites = [
   { title: "Nouveaux ateliers de sensibilisation", description: "Des sessions pratiques pour renforcer les compétences financières, la gestion de projet et l'autonomie." },
   { title: "Renforcement du réseau d'accompagnement", description: "De nouvelles initiatives pour répondre plus efficacement aux besoins des entrepreneurs et des familles." },
