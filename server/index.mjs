@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -139,4 +140,10 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ error: "Une erreur interne est survenue." });
 });
 
-initializeDatabase().then(() => app.listen(port, "0.0.0.0", () => console.log(`API Echoppe Togo sur http://localhost:${port} — DB:${databaseEnabled ? "PostgreSQL" : "JSON local"} — fichiers:${s3Enabled ? "S3/R2" : "local"}`))).catch((error) => { console.error("Initialisation impossible", error); process.exit(1); });
+export { app, initializeDatabase };
+
+if (process.env.VERCEL === "1") {
+  await initializeDatabase();
+} else {
+  initializeDatabase().then(() => app.listen(port, "0.0.0.0", () => console.log(`API Echoppe Togo sur http://localhost:${port} — DB:${databaseEnabled ? "PostgreSQL" : "JSON local"} — fichiers:${s3Enabled ? "S3/R2" : "local"}`))).catch((error) => { console.error("Initialisation impossible", error); process.exit(1); });
+}
