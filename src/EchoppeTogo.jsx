@@ -108,11 +108,12 @@ const partenaires = [
   { name: "FNFI", description: "Un partenariat stratégique au service de l'inclusion financière et du développement local." },
   { name: "SODIGAZ", description: "Une collaboration de proximité qui renforce la visibilité et l'ancrage territorial." },
   { name: "Banque Africaine de Développement", description: "Un réseau d'appui institutionnel orienté vers l'impact social et économique." },
+  { name: "Aube nouvelle", description: "A completer avec les informations." },
 ];
-const temoignages = [
+// const temoignages = [
   { quote: "Grâce à l'accompagnement d'Échoppe, mon activité a pu se stabiliser et grandir.", author: "Awa, entrepreneure" },
   { quote: "Le service est humain, rapide et vraiment orienté vers les besoins réels.", author: "Kossi, bénéficiaire" },
-];
+]; //
 const actualites = [
   { title: "Nouveaux ateliers de sensibilisation", description: "Des sessions pratiques pour renforcer les compétences financières, la gestion de projet et l'autonomie." },
   { title: "Renforcement du réseau d'accompagnement", description: "De nouvelles initiatives pour répondre plus efficacement aux besoins des entrepreneurs et des familles." },
@@ -222,7 +223,7 @@ function Footer() { const [subscribed, setSubscribed] = useState(false); const [
 function BackToTop() { const [visible, setVisible] = useState(false); useEffect(() => { const onScroll = () => setVisible(window.scrollY > 640); window.addEventListener("scroll", onScroll, { passive: true }); onScroll(); return () => window.removeEventListener("scroll", onScroll); }, []); return <button className={`back-to-top ${visible ? "is-visible" : ""}`} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Retour en haut"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>; }
 
 function CreditRequestSection({ onClose }) {
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(false);  
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
